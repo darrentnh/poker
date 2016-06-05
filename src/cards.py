@@ -49,7 +49,8 @@ class Player:
                 print("Player {} has called (${} --> ${})\n".format(self.player_number,
                                                                   self.current_bid, outstanding_bid))
                 action = "call"
-                return self.player_number, action
+                pot_inc = outstanding_bid - self.current_bid
+                return self.player_number, action, pot_inc
 
             elif k and str.lower(chosen_action_) == "k":
                 print("Player", self.player_number, "has checked\n")
@@ -72,7 +73,8 @@ class Player:
                 print("Player {} has raised (${} --> ${})\n".format(self.player_number,
                                                                     outstanding_bid, amount))
                 self.current_bid = amount
-                return self.player_number, action, amount
+                pot_inc = self.current_bid - outstanding_bid
+                return self.player_number, action, amount, pot_inc
 
             elif (str.lower(chosen_action_) == "c" or str.lower(chosen_action_) == "k" or
                           str.lower(chosen_action_) == "r"):
@@ -85,12 +87,13 @@ class Player:
 
 class Game:
     def __init__(self, players):
-        """Takes an integer number of players"""
+        """Instantiate with an integer number of players"""
         # Setup of deck
         self.deck = Deck()
         self.community_cards = set()
         self.street = ("Preflop", "Flop", "Turn", "River")
         self.outstanding_bid = 2  # Big blind
+        self.pot = 3  # SB + BB
 
         # Setup of players
         self.existing_players = {}
@@ -117,14 +120,17 @@ class Game:
 
             while self.check_action_required():
                 for player in list(self.existing_players.values()):
-                    print("Bid to match: $", self.outstanding_bid)
+                    print("Current pot size: ${}. Bid to match: ${}".format(self.pot, self.outstanding_bid))
                     self.check_response(player)
-                    self.check_all_folded()
-                    if not self.check_action_required():  # to fix odd number of turns e.g. R, R, C
+                    if not self.check_action_required():
+                        # To halt if there are no more players with actions in the middle of the for loop
                         break
 
             print("-" * 12, street, "ends", "-" * 12, "\n")
             self.between_streets(street)
+
+        # When there is more than one player left at the end of the river
+        self.show_down()
 
     def between_streets(self, street):
         # Burn and deal community cards
@@ -147,6 +153,10 @@ class Game:
         self.outstanding_bid = 0
 
     def check_action_required(self):
+        """
+        This will return True as long as one players out of the existing players have
+        the attribute action_required = 1.
+        """
         for k, v in list(self.existing_players.items()):
             if self.existing_players[k].action_required == 1:
                 return True
@@ -157,26 +167,26 @@ class Game:
         player.action_required = 0
         if response[1] == "raise":
             self.outstanding_bid = response[2]
-            # set all other players action_required = 1.
+            self.pot += response[3]
+            # Set all other players to have a turn.
             for i in range(len(other_players)):
                 other_players[i].action_required = 1
         elif response[1] == "call":
             # Update current bid to match outstanding bid
             player.current_bid = self.outstanding_bid
+            self.pot += response[2]
         elif response[1] == "fold":
-            player.is_in_game = 0
             self.existing_players.pop(player.player_number)
 
-    def check_all_folded(self):
-        # check if everybody else folded
-        if len(self.existing_players) == 1:
-            last_player = [(k, v) for (k, v) in self.existing_players.items()][0]
-            print("Player", last_player[1].player_number, "is the winner!")
-            input("Press enter to quit the game.")
-            quit()
+            # After deleting player, check if only one player left behind
+            if len(self.existing_players) == 1:
+                last_player = [(k, v) for (k, v) in self.existing_players.items()][0]
+                print("Player", last_player[1].player_number, "is the winner!")
+                input("Press enter to quit the game.")
+                quit()
 
     def show_down(self):
-        pass # TODO: determine hand rank
+        pass  # TODO: determine hand rank
 
 
 Game(3).start()
