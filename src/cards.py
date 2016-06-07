@@ -42,23 +42,23 @@ class Player:
             chosen_action_ = input("Type 'F' for fold, 'C' for call, 'K' to check, or 'R' to raise.")
             if str.lower(chosen_action_) == "f":
                 print("Player", self.player_number, "has folded\n")
-                action = "fold"
-                return self.player_number, action
+                response = {"action": "fold"}
+                return response
 
             elif c and str.lower(chosen_action_) == "c":
                 print("Player {} has called (${} --> ${})\n".format(self.player_number,
-                                                                  self.current_bid, outstanding_bid))
-                action = "call"
+                                                                    self.current_bid, outstanding_bid))
                 pot_inc = outstanding_bid - self.current_bid
-                return self.player_number, action, pot_inc
+                response = {"action": "call",
+                            "pot_increment": pot_inc}
+                return response
 
             elif k and str.lower(chosen_action_) == "k":
                 print("Player", self.player_number, "has checked\n")
-                action = "check"
-                return self.player_number, action
+                response = {"action": "check"}
+                return response
 
             elif r and str.lower(chosen_action_) == "r":
-                action = "raise"
                 while True:
                     amount = input("Type the amount you want to raise to.")
                     try:
@@ -74,7 +74,10 @@ class Player:
                                                                     outstanding_bid, amount))
                 self.current_bid = amount
                 pot_inc = self.current_bid - outstanding_bid
-                return self.player_number, action, amount, pot_inc
+                response = {"action": "raise",
+                            "amount": amount,
+                            "pot_increment": pot_inc}
+                return response
 
             elif (str.lower(chosen_action_) == "c" or str.lower(chosen_action_) == "k" or
                           str.lower(chosen_action_) == "r"):
@@ -97,9 +100,9 @@ class Game:
 
         # Setup of players
         self.existing_players = {}
-
         for i in range(players):
             self.existing_players[i+1] = Player(i+1)
+
         print("Staring a game with {} players".format(len(self.existing_players)))
         for player in self.existing_players.values():
             player.holecards.add(self.deck.draw_card())
@@ -144,7 +147,7 @@ class Game:
             self.community_cards.add(self.deck.draw_card())
         print("Community Cards", self.community_cards, "\n")
 
-        # Reset action_required and current bid for next street
+        # Reset action_required and current bid for next street for all existing players
         for player in list(self.existing_players.values()):
             player.action_required = 1
             player.current_bid = 0
@@ -157,31 +160,35 @@ class Game:
         This will return True as long as one players out of the existing players have
         the attribute action_required = 1.
         """
-        for k, v in list(self.existing_players.items()):
-            if self.existing_players[k].action_required == 1:
+        for player in list(self.existing_players.values()):
+            if player.action_required == 1:
                 return True
 
     def check_response(self, player):
+        """
+        This method takes the response from an individual player's move and adjusts the
+        pot size and outstanding bid for that street.
+        """
         other_players = [x for x in self.existing_players.values() if x is not player]
         response = player.move(self.outstanding_bid)
         player.action_required = 0
-        if response[1] == "raise":
-            self.outstanding_bid = response[2]
-            self.pot += response[3]
+        if response["action"] == "raise":
+            self.outstanding_bid = response["amount"]
+            self.pot += response["pot_increment"]
             # Set all other players to have a turn.
             for i in range(len(other_players)):
                 other_players[i].action_required = 1
-        elif response[1] == "call":
+        elif response["action"] == "call":
             # Update current bid to match outstanding bid
             player.current_bid = self.outstanding_bid
-            self.pot += response[2]
-        elif response[1] == "fold":
+            self.pot += response["pot_increment"]
+        elif response["action"] == "fold":
             self.existing_players.pop(player.player_number)
 
             # After deleting player, check if only one player left behind
             if len(self.existing_players) == 1:
-                last_player = [(k, v) for (k, v) in self.existing_players.items()][0]
-                print("Player", last_player[1].player_number, "is the winner!")
+                for player_number, _ in self.existing_players.items():
+                    print("Player", player_number, "is the winner!")
                 input("Press enter to quit the game.")
                 quit()
 
