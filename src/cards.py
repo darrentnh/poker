@@ -1,5 +1,5 @@
 import random
-
+from ranking import best_hand
 
 class Deck:
     def __init__(self):
@@ -193,7 +193,19 @@ class Game:
                 quit()
 
     def show_down(self):
-        pass  # TODO: determine hand rank
+        """
+        If there are two or more players left after the river, this function is called to
+        determine who is the winner.
+        """
+        print("-" * 12, "Showdown", "-" * 12, "\n")
+        for player in self.existing_players.values():
+            player.best_hand = best_hand(list(player.holecards), list(self.community_cards))
+            print("Player {}'s hole cards: {}".format(player.player_number, player.holecards))
+            print("Player {}'s best hand: {}".format(player.player_number, player.best_hand))
+        list_of_best = [(player.player_number, player.best_hand) for player in self.existing_players.values()]
+        winner = max(list_of_best, key=lambda v: v[1])
+        print("Player {} is the winner with winning hand: {}".format(*winner))
+        # TODO: Split pot
 
 
-Game(3).start()
+Game(2).start()
